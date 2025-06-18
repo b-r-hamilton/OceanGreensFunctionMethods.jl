@@ -18,19 +18,19 @@ nmol = u"nmol"
 
 # define a structure for 2D fluxes in a yz domain
 struct Fluxes{T,A<:AbstractArray{T}} 
-    poleward::A
-    equatorward::A
+    north::A
+    south::A
     up::A
     down::A
 end
 
 +(F1::Fluxes, F2::Fluxes) = Fluxes(
-    F1.poleward + F2.poleward,
-    F1.equatorward + F2.equatorward,
+    F1.north + F2.north,
+    F1.south + F2.south,
     F1.up + F2.up,
     F1.down + F2.down)
 
-dims(F::Fluxes) = dims(F.poleward)
+dims(F::Fluxes) = dims(F.north)
 
 meridional_names() = ["High latitudes", "Mid-latitudes", "Low latitudes"]
 vertical_names() = ["Thermocline", "Deep", "Abyssal"]
@@ -69,18 +69,18 @@ function abyssal_overturning(Ψ,model_dims)
 
     # pre-allocate volume fluxes with zeros with the right units
     Fv_units = unit(Ψ)
-    Fv_poleward = zeros(model_dims, :VectorArray)*Fv_units
-    Fv_equatorward = zeros(model_dims, :VectorArray)*Fv_units
+    Fv_north = zeros(model_dims, :VectorArray)*Fv_units
+    Fv_south = zeros(model_dims, :VectorArray)*Fv_units
     Fv_up = zeros(model_dims, :VectorArray)*Fv_units
     Fv_down = zeros(model_dims, :VectorArray)*Fv_units
 
     # set fluxes manually
     # fluxes organized according to (upwind) source of flux
-    Fv_poleward[At("Low latitudes"),At("Thermocline")] = Ψ 
-    Fv_poleward[At("Mid-latitudes"),At("Thermocline")] = Ψ 
+    Fv_north[At("Low latitudes"),At("Thermocline")] = Ψ 
+    Fv_north[At("Mid-latitudes"),At("Thermocline")] = Ψ 
 
-    Fv_equatorward[At("Mid-latitudes"),At("Abyssal")] = Ψ 
-    Fv_equatorward[At("High latitudes"),At("Abyssal")] = Ψ 
+    Fv_south[At("Mid-latitudes"),At("Abyssal")] = Ψ 
+    Fv_south[At("High latitudes"),At("Abyssal")] = Ψ 
 
     Fv_up[At("Low latitudes"),At("Abyssal")] = Ψ 
     Fv_up[At("Low latitudes"),At("Deep")] = Ψ 
@@ -88,7 +88,7 @@ function abyssal_overturning(Ψ,model_dims)
     Fv_down[At("High latitudes"),At("Thermocline")] = Ψ 
     Fv_down[At("High latitudes"),At("Deep")] = Ψ 
 
-    return Fluxes(Fv_poleward, Fv_equatorward, Fv_up, Fv_down)
+    return Fluxes(Fv_north, Fv_south, Fv_up, Fv_down)
 end
 
 """
@@ -100,23 +100,23 @@ function intermediate_overturning(Ψ,model_dims)
 
     # pre-allocate volume fluxes with zeros with the right units
     Fv_units = unit(Ψ)
-    Fv_poleward = zeros(model_dims, :VectorArray)*Fv_units
-    Fv_equatorward = zeros(model_dims, :VectorArray)*Fv_units
+    Fv_north = zeros(model_dims, :VectorArray)*Fv_units
+    Fv_south = zeros(model_dims, :VectorArray)*Fv_units
     Fv_up = zeros(model_dims, :VectorArray)*Fv_units
     Fv_down = zeros(model_dims, :VectorArray)*Fv_units
 
     # set fluxes manually
     # fluxes organized according to (upwind) source of flux
-    Fv_poleward[At("Mid-latitudes"),At("Abyssal")] = Ψ 
-    Fv_poleward[At("Low latitudes"),At("Abyssal")] = Ψ 
+    Fv_north[At("Mid-latitudes"),At("Abyssal")] = Ψ 
+    Fv_north[At("Low latitudes"),At("Abyssal")] = Ψ 
 
-    Fv_equatorward[At("High latitudes"),At("Deep")] = Ψ 
-    Fv_equatorward[At("Mid-latitudes"),At("Deep")] = Ψ 
+    Fv_south[At("High latitudes"),At("Deep")] = Ψ 
+    Fv_south[At("Mid-latitudes"),At("Deep")] = Ψ 
 
     Fv_up[At("High latitudes"),At("Abyssal")] = Ψ 
     Fv_down[At("Low latitudes"),At("Deep")] = Ψ 
 
-    return Fluxes(Fv_poleward, Fv_equatorward, Fv_up, Fv_down)
+    return Fluxes(Fv_north, Fv_south, Fv_up, Fv_down)
 end
 
 
@@ -129,8 +129,8 @@ function vertical_diffusion(Fv_exchange,model_dims)
 
     # pre-allocate volume fluxes with zeros with the right units
     Fv_units = unit(Fv_exchange)
-    Fv_poleward = zeros(model_dims, :VectorArray)*Fv_units
-    Fv_equatorward = zeros(model_dims, :VectorArray)*Fv_units
+    Fv_north = zeros(model_dims, :VectorArray)*Fv_units
+    Fv_south = zeros(model_dims, :VectorArray)*Fv_units
     Fv_up = zeros(model_dims, :VectorArray)*Fv_units
     Fv_down = zeros(model_dims, :VectorArray)*Fv_units
 
@@ -144,7 +144,7 @@ function vertical_diffusion(Fv_exchange,model_dims)
     Fv_down[:,At(["Thermocline","Deep"])] =
         Fv_down[:,At(["Thermocline","Deep"])] .+ Fv_exchange 
     
-    return Fluxes(Fv_poleward, Fv_equatorward, Fv_up, Fv_down)
+    return Fluxes(Fv_north, Fv_south, Fv_up, Fv_down)
 end
 
 """
@@ -175,8 +175,8 @@ Advective-diffusive flux of tracer `C` given volume fluxes `Fv` and optional den
 """
 advective_diffusive_flux(C::VectorDimArray, Fv::Fluxes ; ρ = 1035kg/m^3) =
     Fluxes(
-        advective_diffusive_flux(C, Fv.poleward, ρ=ρ),
-        advective_diffusive_flux(C, Fv.equatorward, ρ=ρ),
+        advective_diffusive_flux(C, Fv.north, ρ=ρ),
+        advective_diffusive_flux(C, Fv.south, ρ=ρ),
         advective_diffusive_flux(C, Fv.up, ρ=ρ),
         advective_diffusive_flux(C, Fv.down, ρ=ρ)
     )
@@ -198,17 +198,17 @@ and thus currently requires using `parent` on the left hand side below.
 function convergence(J::Fluxes{T,A}) where {T, A <: VectorDimArray{T}}
 
     # all the fluxes leaving a box
-    deldotJ = -( J.poleward + J.equatorward + J.up + J.down)
+    deldotJ = -( J.north + J.south + J.up + J.down)
 
     # add `parent` to handle proper broadcasting
     
-    # #poleward flux entering
+    # #north flux entering
     # parent(deldotJ)[At(["Mid-latitudes","High latitudes"]),:] .+=
-    #    J.poleward[At(["Low latitudes","Mid-latitudes"]),:]
+    #    J.north[At(["Low latitudes","Mid-latitudes"]),:]
 
-    # #equatorward flux entering
+    # #south flux entering
     # parent(deldotJ)[At(["Low latitudes","Mid-latitudes"]),:] .+=
-    #     J.equatorward[At(["Mid-latitudes","High latitudes"]),:]
+    #     J.south[At(["Mid-latitudes","High latitudes"]),:]
 
     # # upward flux entering
     # parent(deldotJ)[:,At(["Thermocline","Deep"])] .+=
@@ -217,15 +217,15 @@ function convergence(J::Fluxes{T,A}) where {T, A <: VectorDimArray{T}}
     # # downward flux entering
     # parent(deldotJ)[:,At(["Deep","Abyssal"])] .+=
     #     J.down[:,At(["Thermocline","Deep"])]
-
+#=
     #alternatively, could write
     deldotJ[At(["Mid-latitudes","High latitudes"]),:] =
        deldotJ[At(["Mid-latitudes","High latitudes"]),:] .+
-       J.poleward[At(["Low latitudes","Mid-latitudes"]),:]
+       J.north[At(["Low latitudes","Mid-latitudes"]),:]
 
     deldotJ[At(["Low latitudes","Mid-latitudes"]),:] =
         deldotJ[At(["Low latitudes","Mid-latitudes"]),:] .+
-        J.equatorward[At(["Mid-latitudes","High latitudes"]),:]
+        J.south[At(["Mid-latitudes","High latitudes"]),:]
 
     # upward flux entering
     deldotJ[:,At(["Thermocline","Deep"])] =
@@ -236,12 +236,17 @@ function convergence(J::Fluxes{T,A}) where {T, A <: VectorDimArray{T}}
     deldotJ[:,At(["Deep","Abyssal"])] =
         deldotJ[:,At(["Deep","Abyssal"])] .+
         J.down[:,At(["Thermocline","Deep"])]
-       
+       =#
     # this fails, but is a goal to make this work
     #deldotJ[At(["Mid-latitudes","High latitudes"]),:] .+=
-    #    J.poleward[At(["Low latitudes","Mid-latitudes"]),:]
-
-    return deldotJ 
+    #    J.north[At(["Low latitudes","Mid-latitudes"]),:]
+    sx = size(deldotJ)[1]
+    sy = size(deldotJ)[2]
+    deldotJ[:, 1:sy-1] .+= J.up[:, 2:sy]
+    deldotJ[:, 2:sy] .+= J.down[:, 1:sy-1]
+    deldotJ[1:sx-1, :] .+= J.north[2:sx, :]
+    deldotJ[2:sx, :] .+= J.south[1:sx-1, :]
+    return deldotJ
 end
 
 """
@@ -472,7 +477,9 @@ tracer_units() = Dict(
     :SF6NH => NoUnits,
     :SF6SH => NoUnits,
     :N2ONH => nmol/kg,
-    :N2OSH => nmol/kg
+    :N2OSH => nmol/kg,
+    :Bool => NoUnits, 
+    :C14 => NoUnits
     )
 
     # for non-transient tracers
@@ -495,12 +502,21 @@ Return a function that yields transient tracer source history (such as CFCs) at 
 - `BD::DimArray`: Dirichlet boundary condition compendium for many tracers
 """
 function tracer_point_source_history(tracername, BD)
-
     tracer_timeseries = BD[Tracer=At(tracername)] * tracer_units()[tracername]
+    if length(dims(BD)) == 2 
+        return linear_interpolation(
+            first(DimensionalData.index(dims(tracer_timeseries))),
+            tracer_timeseries)
+    else
+        dtt = dims(tracer_timeseries)
+        ydim = 1:length(dtt[2]) #Meridional 
+        nodes = ([x for x in dtt[1]], ydim)
+        tpsh(t) = interpolate(nodes,tracer_timeseries.data,(Gridded(Linear()), NoInterp()))(t, 1:length(dtt[2]))
+        return tpsh
 
-    return linear_interpolation(
-        first(DimensionalData.index(dims(tracer_timeseries))),
-        tracer_timeseries)
+    end
+    
+        
 end
 
 """
@@ -514,21 +530,39 @@ Return source history values for all boundary points.
 - `box2_box1_ratio`: ratio of boundary condition value in Mid-latitudes to High Latitudes
 - `BD::DimArray=nothing`: Dirichlet boundary condition compendium (optional)
 """
-function tracer_source_history(t, tracername, box2_box1_ratio, BD = nothing)
+function tracer_source_history(t, tracername, box2_box1_ratio, BD = nothing, glob = nothing)
 
     if tracername == :argon39
         source_func = tracer_point_source_history(tracername)
     else
         source_func = tracer_point_source_history(tracername, BD)
+
     end
 
-    box1 = source_func(t)
-    box2 = box2_box1_ratio * box1
-    
-    # replace this section with a function call.
-    boundary_dims = boundary_dimensions()
+    if tracername ∉ [:Bool, :C14]
+        box1 = source_func(t)
+        box2 = box2_box1_ratio * box1
+        
+        # replace this section with a function call.
+        boundary_dims = boundary_dimensions()
 
     return AlgebraicArray([box1,box2],boundary_dims)
+    else tracername ∈ [:Bool, :C14]
+        b = source_func(t)
+
+        if !isnothing(glob)
+            glob .= b
+            return glob
+        else
+
+            dBD = dims(BD)
+            return AlgebraicArray(vec(b), (Ti([t]), dBD[2], dBD[3]))
+        end
+
+    end
+    
+    # replace this section with a function call.
+    
 end
 
 """
@@ -571,6 +605,7 @@ function evolve_concentration(C₀, A, B, tlist, source_history; halflife = noth
         Ci = timestep_initial_condition(C[tt-1], μ, V, ti, tf)
 
         # Forcing contribution
+        
         Cf = integrate_forcing( ti, tf, μ, V, B, source_history)
 
         # total
@@ -606,7 +641,10 @@ Integrand for boundary condition term in equation 10 (Haine et al., 2024).
 - `B`: boundary condition matrix
 - `source_history::Function`: returns Dirichlet boundary condition at a given time
 """
-forcing_integrand(t, tf, μ, V, B, source_history) = real( V * exp(Diagonal(μ)*(tf-t)) / V * B * source_history(t))
+function forcing_integrand(t, tf, μ, V, B, source_history)
+    return real( V * exp(Diagonal(μ)*(tf-t)) / V * B * source_history(t))
+end
+
 #forcing_integrand(t, tf, μ, V, B, source_history) = real.( V * exp(Diagonal(μ)*(tf-t)) / V * B * source_history(t))
     
 """
@@ -624,7 +662,6 @@ Integrate boundary condition term in equation 10 (Haine et al., 2024).
 """
 function integrate_forcing(t0, tf, μ, V, B, source_history)
     forcing_func(t) = forcing_integrand(t, tf, μ, V, B, source_history)
-
     # MATLAB: integral(integrand,ti,tf,'ArrayValued',true)
     integral, err = quadgk(forcing_func, t0, tf)
     (err < 1e-5) ? (return integral) : error("integration error too large")
@@ -645,14 +682,14 @@ Simulate tracers and return tracer timeseries from one box.
 - `BD=nothing`: Dirichlet boundary condition
 - `halflife=nothing`: radioactive half life
 """
-function tracer_timeseries(tracername, A, B, tlist, mbox1, vbox1; BD=nothing, halflife=nothing)
+function tracer_timeseries(tracername, A, B, tlist, mbox1, vbox1; BD=nothing, halflife=nothing, glob = nothing)
 
     if isnothing(halflife) && !isnothing(BD)
-        return transient_tracer_timeseries(tracername, A, B, BD, tlist, mbox1, vbox1)
-    elseif tracername == :argon39
+        return transient_tracer_timeseries(tracername, A, B, BD, tlist, mbox1, vbox1,glob = glob)
+    elseif tracername == :argon39 
         return steady_tracer_timeseries(tracername, A, B, halflife, tlist, mbox1, vbox1)
-    elseif tracername == :iodine129 && !isnothing(BD)
-        return transient_tracer_timeseries(tracername, A, B, BD, tlist, mbox1, vbox1, halflife = halflife)
+    elseif tracername ∈ [:iodine129, :C14] && !isnothing(BD)
+        return transient_tracer_timeseries(tracername, A, B, BD, tlist, mbox1, vbox1, halflife = halflife,glob = glob)
     end
 end
 
@@ -671,7 +708,7 @@ Simulate transient tracers and return tracer timeseries from one box.
 - `vbox`: name of vertical box of interest
 - `halflife=nothing`: radioactive half life
 """
-function transient_tracer_timeseries(tracername, A, B, BD, tlist, mbox1, vbox1; halflife = nothing)
+function transient_tracer_timeseries(tracername, A, B, BD, tlist, mbox1, vbox1; halflife = nothing, glob = false)
 
     # fixed parameters for transient tracers
     if tracername == :iodine129
@@ -680,27 +717,36 @@ function transient_tracer_timeseries(tracername, A, B, BD, tlist, mbox1, vbox1; 
         (tracername == :CFC12NH) ||
         (tracername == :SF6NH)
         box2_box1_ratio = 0.75
+    elseif (tracername ∈ [:Bool, :C14])
+        box2_box1_ratio = 1#0.5
     else
         error("transient tracer not implemented")
     end
 
+    
     # all tracers start with zero boundary conditions
-    C₀ = zeros(model_dimensions(), :VectorArray)
+    #C₀ = zeros(model_dimensions(), :VectorArray)
+    C₀ = zeros(A.data.dims, :VectorArray)
 	
     source_history_func(t) =  tracer_source_history(t,
-	tracername,
-	box2_box1_ratio,
-	BD,
-    )
-    
+	                                            tracername,
+	                                            box2_box1_ratio,
+                                                    BD, 
+                                                    glob
+                                                    )
     Cevolve = evolve_concentration(C₀, 
-	A,
-	B,
-	tlist, 
-	source_history_func,
-        halflife = halflife)
-    	
-    return [Cevolve[t][At(mbox1),At(vbox1)] for t in eachindex(tlist)]
+	                           A,
+	                           B,
+	                           tlist, 
+	                           source_history_func,
+                                   halflife = halflife)
+    if isnothing(mbox1) && isnothing(vbox1)
+        da1 = [Matrix(Cevolve[t].data) for t in eachindex(tlist)]
+        return AlgebraicArray(vec(cat(da1..., dims = 3)) , (A.data.dims..., Ti(tlist)))
+    else
+        return [Cevolve[t][At(mbox1),At(vbox1)] for t in eachindex(tlist)]
+    end
+    
 
 end
 
@@ -723,7 +769,7 @@ function steady_tracer_timeseries(tracername, A, B, halflife, tlist, mbox1, vbox
 
     C₀ = ones(model_dimensions(), :VectorArray) # initial conditions: faster spinup
 
-    if tracername == :argon39
+    if tracername == :argon39 
         box2_box1_ratio = 1 
     
         source_history_func(t) =  tracer_source_history(t,
